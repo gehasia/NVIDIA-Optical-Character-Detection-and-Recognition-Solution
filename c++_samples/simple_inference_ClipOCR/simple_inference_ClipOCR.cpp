@@ -4,7 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
-#include "nvocdr.h"
+#include "../include/nvocdr.h"
 
 
 int visualize(std::string img_path, nvOCDROutputMeta texts,
@@ -30,11 +30,41 @@ int visualize(std::string img_path, nvOCDROutputMeta texts,
         cv::line(img, cv::Point((int)(x2 * scale_x), (int)(y2 * scale_y)), cv::Point((int)(x3 * scale_x), (int)(y3 * scale_y)), cv::Scalar(0, 255, 0), 1);
         cv::line(img, cv::Point((int)(x3 * scale_x), (int)(y3 * scale_y)), cv::Point((int)(x4 * scale_x), (int)(y4 * scale_y)), cv::Scalar(0, 255, 0), 1);
         cv::line(img, cv::Point((int)(x4 * scale_x), (int)(y4 * scale_y)), cv::Point((int)(x1 * scale_x), (int)(y1 * scale_y)), cv::Scalar(0, 255, 0), 1);
-        cv::putText(img, output_text, cv::Point(x4 * scale_x, y4 * scale_y), cv::FONT_HERSHEY_SIMPLEX, 0.3, cv::Scalar(255, 0, 0), 1);
+        cv::putText(img, output_text, cv::Point(x4 * scale_x, y4 * scale_y), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 1);
     }
     cv::imwrite(img_path+"_v.jpg", img);
 
     return 0;
+}
+
+void textFilter(nvOCDROutputMeta texts, const std::string keeped_charset, bool lowercase_only=true, bool uppercase_only=false)
+{
+    // we only have 1 image in this sample
+     for(int i = 0; i < texts.text_cnt[0]; ++i)
+    {
+        std::string filted_text = "";
+        std::string output_text(texts.text_ptr[i].ch);
+        if(lowercase_only)
+        {
+            std::transform(output_text.begin(), output_text.end(), output_text.begin(), ::tolower);
+        }
+        else if(uppercase_only)
+        {
+            std::transform(output_text.begin(), output_text.end(), output_text.begin(), ::toupper);
+        }
+        for(int idx=0; idx<output_text.size(); idx++)
+        {
+            if (keeped_charset.find(output_text[idx]) == std::string::npos)
+            {
+        
+                continue;
+            }
+            filted_text += output_text[idx];
+        }
+        strncpy(texts.text_ptr[i].ch, filted_text.c_str(), (size_t) MAX_CHARACTER_LEN - 1);
+
+    }
+
 }
 
 
@@ -45,24 +75,24 @@ int main()
     // Please pay attention to the following parameters. You may need to change them according to different models.
     nvOCDRParam param;
     param.input_data_format = NHWC;
-    param.ocdnet_trt_engine_path = (char *)"/hdd_10t/tylerz/CTSE_DL/github/ptmv1_models/ocdnet_320.fp16.engine";
+    param.ocdnet_trt_engine_path = (char *)"/localhome/local-bizhao/models/ocdnet.fp16.engine";
     param.ocdnet_infer_input_shape[0] = 3;
-    param.ocdnet_infer_input_shape[1] = 320;
-    param.ocdnet_infer_input_shape[2] = 320;
-    param.ocdnet_binarize_threshold = 0.3;
-    param.ocdnet_polygon_threshold = 0.1;
-    param.ocdnet_max_candidate = 5000;
+    param.ocdnet_infer_input_shape[1] = 736;
+    param.ocdnet_infer_input_shape[2] = 1280;
+    param.ocdnet_binarize_threshold = 0.1;
+    param.ocdnet_polygon_threshold = 0.3;
+    param.ocdnet_max_candidate = 200;
     param.ocdnet_unclip_ratio = 1.5;
-    param.ocrnet_trt_engine_path = (char *)"/hdd_10t/tylerz/CTSE_DL/github/ptmv1_models/ocrnet.fp16.engine";
-    param.ocrnet_dict_file = (char *)"/hdd_10t/tylerz/CTSE_DL/github/ptmv1_models/character_list";
-    param.ocrnet_infer_input_shape[0] = 1;
-    param.ocrnet_infer_input_shape[1] = 64;
-    param.ocrnet_infer_input_shape[2] = 200;
-    param.ocrnet_decode = Attention;
+    param.ocrnet_trt_engine_path = (char *)"/localhome/local-bizhao/output/vl4str_base_pcb_10_split_oversample.ckpt.img.fp32.onnx_sim.onnx.fp16.engine";
+    param.ocrnet_dict_file = (char *)"/localhome/local-bizhao/models/character_list";
+    param.ocrnet_infer_input_shape[0] = 3;
+    param.ocrnet_infer_input_shape[1] = 224;
+    param.ocrnet_infer_input_shape[2] = 224;
+    param.ocrnet_decode = CLIP;
     nvOCDRp nvocdr_ptr = nvOCDR_init(param);
 
     // Load the input
-    const char* img_path = "/hdd_10t/tylerz/CTSE_DL/github/doc.jpg";
+    const char* img_path = "/localhome/local-bizhao/NVIDIA-Optical-Character-Detection-and-Recognition-Solution/c++_samples/test_img/scene_text.jpg";
     cv::Mat img = cv::imread(img_path);
     nvOCDRInput input;
     input.device_type = GPU;
@@ -76,13 +106,17 @@ int main()
 
     // Do inference
     nvOCDROutputMeta output;
-    // crop-based inference
-    nvOCDR_high_resolution_inference(input, &output, nvocdr_ptr, 0.5);
+    // simple inference
+    nvOCDR_inference(input, &output, nvocdr_ptr);
+    
+    // filter the output text, and covert to lowercase
+    std::string keeped_charset = "0123456789abcdefghijklmnopqrstuvwxyz";
+    textFilter(output, keeped_charset);
 
     // Visualize the output
     int offset = 0;
     visualize(img_path, output, input.shape[2], input.shape[1]);
-
+    std::cout << "sample infer done, results save to  " << img_path << std::endl;
     // Destroy the resoures
     free(output.text_ptr);
     cudaFree(input.mem_ptr);

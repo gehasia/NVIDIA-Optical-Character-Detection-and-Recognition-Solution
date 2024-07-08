@@ -4,7 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
-#include "nvocdr.h"
+#include "../../include/nvocdr.h"
 
 
 int visualize(std::string img_path, nvOCDROutputMeta texts,
@@ -45,16 +45,17 @@ int main()
     // Please pay attention to the following parameters. You may need to change them according to different models.
     nvOCDRParam param;
     param.input_data_format = NHWC;
-    param.ocdnet_trt_engine_path = (char *)"/hdd_10t/tylerz/CTSE_DL/github/ptmv2_models/ocdnet.fp16.engine";
+    param.ocdnet_trt_engine_path = (char *)"/home/guillaume/Workspace/models/pretrained/engines/ocdnet/ocdnet_fan_tiny_2x_ubertext.engine";
+    param.ocrnet_trt_engine_path = (char *)"//home/guillaume/Workspace/models/pretrained/engines/ocrnet/ocrnet-vit.engine";
+    param.ocrnet_dict_file = (char *)"/home/guillaume/Workspace/models/pretrained/engines/ocrnet/character_list";
     param.ocdnet_infer_input_shape[0] = 3;
-    param.ocdnet_infer_input_shape[1] = 736;
-    param.ocdnet_infer_input_shape[2] = 1280;
+    param.ocdnet_infer_input_shape[1] = 960;
+    param.ocdnet_infer_input_shape[2] = 960;
     param.ocdnet_binarize_threshold = 0.1;
     param.ocdnet_polygon_threshold = 0.3;
     param.ocdnet_max_candidate = 200;
     param.ocdnet_unclip_ratio = 1.5;
-    param.ocrnet_trt_engine_path = (char *)"/hdd_10t/tylerz/CTSE_DL/github/ptmv2_models/ocrnet.fp16.engine";
-    param.ocrnet_dict_file = (char *)"/hdd_10t/tylerz/CTSE_DL/github/ptmv2_models/character_list";
+
     param.ocrnet_infer_input_shape[0] = 1;
     param.ocrnet_infer_input_shape[1] = 64;
     param.ocrnet_infer_input_shape[2] = 200;
@@ -62,7 +63,7 @@ int main()
     nvOCDRp nvocdr_ptr = nvOCDR_init(param);
 
     // Load the input
-    const char* img_path = "/hdd_10t/tylerz/CTSE_DL/github/scene_text.jpg";
+    const char* img_path = "/home/guillaume/Workspace/Photos/5.png";
     cv::Mat img = cv::imread(img_path);
     nvOCDRInput input;
     input.device_type = GPU;
